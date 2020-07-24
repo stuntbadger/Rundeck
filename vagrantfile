@@ -1,0 +1,34 @@
+Vagrant.configure("2") do |config|
+  PROJECT="RunDeckTechDemo"
+  RDIP="192.168.56.101"
+
+  config.ssh.insert_key = false
+  config.vm.box_version = "1905.1"
+  config.vm.box = "centos/8"
+  config.ssh.insert_key = true
+
+  config.vm.provider "virtualbox" do |vb|
+   vb.cpus = "2"
+   vb.memory = "2048"
+  end
+
+  config.vm.define :rundeck do |rundeck|
+    rundeck.vm.hostname = "rundeck.local"
+    rundeck.vm.network :private_network, ip: "#{RDIP}"
+
+    rundeck.vm.provision :shell, inline: "yum install epel-release -y"
+    ####################
+    #disable SeLinux
+    config.vm.provision :shell, :inline => "setenforce 0", run: "always"
+    #config for building RunDeck general Linux shell commands 
+    config.vm.provision "shell", inline: <<-SHELL
+        systemctl stop firewalld
+        systemctl disable firewalld
+        rpm -Uvh http://repo.rundeck.org/latest.rpm 
+        yum -y install java-1.8.0-openjdk rundeck
+        sed -i 's/localhost/192.168.56.101/g' /etc/rundeck/framework.properties
+        sed -i 's/localhost/192.168.56.101/g' /etc/rundeck/rundeck-config.properties
+        systemctl restart rundeckd
+    SHELL
+  end
+end
